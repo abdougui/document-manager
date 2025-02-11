@@ -31,7 +31,14 @@ This application allows users to upload and read documents with specific allowed
         sam build
         sam deploy --guided
         ```
-
+    - To test locally using Docker:
+    - Make sure docker is running
+    - Modify `env_example.json` to `env.json`.
+    - Update the credentials.
+        ```sh
+        sam build
+        sam local start-api --env-vars env.json
+        ```
 ### Backend Endpoints
 
 - `GET /documents` - Retrieves a list of all documents.
