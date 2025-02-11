@@ -12,6 +12,7 @@ logger.setLevel(logging.INFO)
 main_bp = Blueprint('documents', __name__)
 upload_bp = Blueprint('upload', __name__)
 detect_bp = Blueprint('detect', __name__)
+delete_bp = Blueprint('delete', __name__)
 
 # Initialize Document Service
 document_service = DocumentService()
@@ -35,8 +36,8 @@ def upload_document():
         return jsonify({'error': 'Selected document is very heavy: Max 2MB'}), 400
 
     try:
-        document_service.upload_file(file, file_name)
-        return jsonify({'message': 'File uploaded successfully'}), 200
+        document_data = document_service.upload_document(file, file_name)
+        return jsonify({'message': 'File uploaded successfully', 'document': document_data}), 200
     except Exception as e:
         logger.exception('Error uploading file: %s', e)
         return jsonify({'error': 'Internal server error'}), 500
@@ -46,14 +47,14 @@ def upload_document():
 def list_documents():
     """Lists all documents stored in S3."""
     try:
-        document_list = document_service.list_files()
+        document_list = document_service.list_documents()
         return jsonify(document_list), 200
     except Exception as e:
         logger.exception('Error listing documents: %s', e)
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@detect_bp.route('/detect', methods=['POST'])
+@main_bp.route('/detect', methods=['POST'])
 def detect_document_category():
     """Detects and updates document category."""
     try:
@@ -64,6 +65,26 @@ def detect_document_category():
         logger.info('Detecting category for document %s', document_id)
 
         result = document_service.detect_and_update_category(document_id)
+
+        if 'error' in result:
+            return jsonify(result), 404 if result['error'] == 'Document not found' else 500
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        logger.exception('Error detecting/updating category for document: %s', e)
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@delete_bp.route('/delete/<document_id>', methods=['DELETE'])
+def delete_document(document_id):
+    try:
+        if not document_id:
+            return jsonify({'error': 'Missing document_id'}), 400
+
+        logger.info('Deleting document %s', document_id)
+
+        result = document_service.delete_document(document_id)
 
         if 'error' in result:
             return jsonify(result), 404 if result['error'] == 'Document not found' else 500

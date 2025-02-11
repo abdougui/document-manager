@@ -39,8 +39,8 @@ class S3FileStorage(IDocumentStorage):
 
     def upload_file(self, file, file_name: str) -> Dict[str, Any]:
         try:
-            document_id = str(uuid.uuid4())
-            s3_key = f'documents/{document_id}_{secure_filename(file_name)}'
+            document_id = f'{str(uuid.uuid4())}_{secure_filename(file_name)}'
+            s3_key = f'documents/{document_id}'
             self._client.upload_fileobj(
                 file,
                 self._bucket,
@@ -54,7 +54,7 @@ class S3FileStorage(IDocumentStorage):
                 },
             )
             logger.info(f'File "{file_name}" has been uploaded to bucket "{self._bucket}".')
-            return True
+            return document_id
 
         except ClientError as e:
             logger.error(f'Error uploading file to S3: {e}')
@@ -63,33 +63,32 @@ class S3FileStorage(IDocumentStorage):
             logger.error(f'Unexpected error uploading file: {e}')
             raise Exception('Unexpected error uploading file', e)
 
-    def retrieve_s3_objects(self, prefix: str = 'documents') -> bool:
+    def retrieve_s3_objects(self, prefix: str = 'documents') -> list:
         try:
             logger.info(f'Listing objects in bucket "{self._bucket}" with prefix "{prefix}"')
             response = self._client.list_objects_v2(Bucket=self._bucket, Prefix=prefix)
+            # If there are no objects, return an empty list
             if 'Contents' not in response:
                 return []
+            # Build file details for each object found
+            return [self._build_file_data(obj) for obj in response['Contents']]
 
-            files = []
-            for obj in response['Contents']:
-                file_key = obj['Key']
-                file_url = f'https://{self._bucket}.s3.amazonaws.com/{file_key}'
-                metadata = self.get_s3_file_metadata(file_key)
-                files.append(
-                    {
-                        'filename': file_key.split('/')[-1],
-                        'file_url': file_url,
-                        'metadata': metadata,
-                        'size': obj['Size'],
-                        'last_modified': obj['LastModified'].isoformat(),
-                    }
-                )
+        except Exception as e:
+            logger.error('Error retrieving S3 objects', exc_info=e)
+            raise
 
-            return files
+    def _build_file_data(self, obj) -> dict:
+        file_key = obj['Key']
+        file_url = f'https://{self._bucket}.s3.amazonaws.com/{file_key}'
+        metadata = self.get_s3_file_metadata(file_key)
 
-        except ClientError as e:
-            logger.error(f"Error listing objects in bucket '{self._bucket}' with prefix {prefix}")
-            raise Exception('Error listing objects', e)
+        return {
+            'filename': file_key.split('/')[-1],
+            'file_url': file_url,
+            'metadata': metadata,
+            'size': obj['Size'],
+            'last_modified': obj['LastModified'].isoformat(),
+        }
 
     def get_s3_file_metadata(self, file_key: str) -> Dict[str, Any]:
         logger.debug('Getting metadata for file key: %s', file_key)
@@ -107,7 +106,11 @@ class S3FileStorage(IDocumentStorage):
         prefix = f'documents/{document_id}'
         try:
             object_content = self._client.get_object(Bucket=self._bucket, Key=prefix)
-            logger.info('List objects response for document id %s: %s', document_id, object_content)
+            logger.info(
+                'List objects response for document id %s: %s',
+                document_id,
+                object_content,
+            )
         except Exception as e:
             logger.error('Error listing objects for document id %s: %s', document_id, e)
             raise Exception(f'Error listing objects for document id {document_id}') from e
@@ -121,7 +124,6 @@ class S3FileStorage(IDocumentStorage):
         except Exception as e:
             logger.error(f'Error retrieving metadata for {self._bucket}/{document_key}: {e}')
             return
-
         current_metadata['category'] = category
 
         try:
@@ -135,3 +137,18 @@ class S3FileStorage(IDocumentStorage):
             logger.info(f'Metadata for {self._bucket}/{document_key} updated successfully!')
         except Exception as e:
             logger.error(f'Error updating metadata for {self._bucket}/{document_key}: {e}')
+
+    def remove_file_object_by_document_id(self, document_id: str) -> Dict[str, Any]:
+        logger.debug('Attempting to remove file object for document id: %s', document_id)
+        object_key = f'documents/{document_id}'
+        try:
+            response = self._client.delete_object(Bucket=self._bucket, Key=object_key)
+            logger.info(
+                'Successfully removed file object for document id %s: %s',
+                document_id,
+                response,
+            )
+        except Exception as e:
+            logger.error('Error removing file object for document id %s: %s', document_id, e)
+            return False
+        return True

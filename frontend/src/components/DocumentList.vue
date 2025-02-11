@@ -8,8 +8,7 @@
         <!-- Main Content -->
         <el-main class="content">
             <UploadModal v-model="showUploadModal" uploadAction="/upload" acceptedFileTypes="image/*,application/pdf"
-                :maxSizeInMB="10" authToken="your-auth-token" @upload-success="handleUploadSuccess"
-                @upload-error="handleUploadError" />
+                :maxSizeInMB="10" @file-uploaded="handleUploadSuccess" @upload-error="handleUploadError" />
             <div class="toolbar">
                 <!-- Filter Section (Left) -->
                 <div class="filter-section">
@@ -40,10 +39,15 @@
                 <el-table-column label="Category">
                     <template #default="scope">
                         <span v-if="scope.row.category != 'none'">{{ scope.row.category }}</span>
-                        <el-button v-else type="warning" @click="analyzeDocument(scope.$index, scope.row)"
-                            data-testid="analyze-button">
-                            Analyze
-                        </el-button>
+                        <template v-else>
+                            <el-button v-if="!loading" type="warning" @click="analyzeDocument(scope.$index, scope.row)"
+                                data-testid="analyze-button">
+                                Analyze
+                            </el-button>
+                            <el-icon v-else>
+                                <i class="el-icon-loading"></i> Fetching...
+                            </el-icon>
+                        </template>
                     </template>
                 </el-table-column>
                 <el-table-column label="Actions">
@@ -66,13 +70,13 @@
 <script setup lang="ts">
 import UploadModal from '../components/UploadFileModal.vue'
 import { onMounted, watch, ref } from 'vue';
-import { ElMessage, ElContainer, ElButton, ElTable, ElHeader, ElInput, ElTableColumn, ElMain, ElForm, ElFormItem, ElSelectV2 } from 'element-plus';
-import documentUploadService from '@/services/documentService';
+import { ElMessage, ElMessageBox, ElContainer, ElButton, ElTable, ElHeader, ElInput, ElTableColumn, ElMain, ElForm, ElFormItem, ElSelectV2 } from 'element-plus';
+import documentService from '@/services/documentService';
 
 // Variables
 
 const selectedCategory = ref('');
-const loading = ref(false);
+const loading = ref(true);
 const searchName = ref('');
 const selectedCategories = ref([]);
 const showUploadModal = ref(false)
@@ -84,41 +88,80 @@ interface Document {
     category: string;
     upload_time: string;
     fileSize: string;
+    documentId: string;
 }
 
 // New function to transform the provided data
 function transformDocumentData(data: any): Document {
     return {
-        fileName: data.metadata.filename,
+        fileName: data.metadata.original_name,
         category: data.metadata.category,
         upload_time: data.metadata.upload_time,
-        fileSize: `${(data.size / 1024).toFixed(2)} KB` // Convert size to KB
+        fileSize: `${(data.size / 1024).toFixed(2)} KB`, // Convert size to KB
+        documentId: data.filename
     };
 }
 
 const documentList = ref<Document[]>([]);
-const categoryOptions = ref([
-    { label: 'Category 1', value: 'Contract' },
-    { label: 'Category 2', value: 'Invoice' },
-    { label: 'Category 3', value: 'category3' }
-]);
+const categoryOptions = ref([]);
+
+watch(selectedCategory, (newValue) => {
+    if (!newValue || newValue.length === 0) {
+        filteredDocuments.value = documentList.value;
+        return;
+    }
+    filteredDocuments.value = documentList.value.filter((item) => {
+        return newValue.includes(item.category);
+    });
+});
+
+function updateCategoryOptions() {
+    const uniqueCategories = new Set(documentList.value.map(doc => doc.category));
+    categoryOptions.value = Array.from(uniqueCategories).map(category => ({
+        label: category,
+        value: category
+    }));
+}
 
 // functions
-const analyzeDocument = (index: number, row: Document) => {
-    ElMessage.info(`Editing document: ${row.fileName}`);
-};
-
-const openUploadModal = () => {
-    ElMessage.info('Opening upload modal');
+const analyzeDocument = async (index: number, row: Document) => {
+    let documentId = row.documentId;
+    try {
+        let category = await documentService.analyzeDocument(documentId);
+        filteredDocuments.value[index].category = category.detected_category;
+        ElMessage.success('Document detected successfully!');
+    } catch (error) {
+        ElMessage.error('Failed to analyze document.');
+        console.error('Error analyzing document:', error);
+    }
 };
 
 const handleDelete = (index: number, row: Document) => {
-    ElMessage.info(`Editing document: ${row.fileName}`);
+    ElMessageBox.confirm(
+        `Are you sure you want to delete the document: ${row.fileName}?`,
+        'Confirm Delete',
+        {
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            type: 'warning',
+        }
+    ).then(async () => {
+        try {
+            await documentService.deleteDocument(row.documentId);
+            filteredDocuments.value.splice(index, 1);
+            ElMessage.success('Document deleted successfully!');
+        } catch (error) {
+            ElMessage.error('Failed to delete document.');
+            console.error('Error deleting document:', error);
+        }
+    }).catch(() => {
+        ElMessage.info('Delete canceled');
+    });
+
 };
 function handleUploadSuccess(response) {
     // Handle the successful upload (e.g. update the UI or state)
     ElMessage.success('Document uploaded successfully!')
-    console.log('Upload success:', response)
 }
 
 function handleUploadError(error) {
@@ -129,21 +172,19 @@ function handleUploadError(error) {
 function openModal() {
     showUploadModal.value = true
 }
-function transformDocumentList(documents: Document[]) {
-    return documents.map((doc) => {
-        return {
-            ...doc,
-            fileSize: `${(Math.random() * 10).toFixed(2)} MB`
-        };
-    });
+async function fetchDocumentList() {
+    loading.value = true;
+    documentList.value = await documentService.getDocuments();
+    const transformedDocuments = documentList.value.map(transformDocumentData);
+    documentList.value = transformedDocuments;
+    filteredDocuments.value = transformedDocuments;
+    updateCategoryOptions()
+    loading.value = false;
 }
 // Watchers
 onMounted(async () => {
     try {
-        const documents = await documentUploadService.getDocuments();
-        const transformedDocuments = documents.map(transformDocumentData);
-        documentList.value = transformedDocuments;
-        filteredDocuments.value = transformedDocuments;
+        fetchDocumentList()
     } catch (error) {
         ElMessage.error('Failed to fetch documents.');
         console.error('Error fetching documents:', error);
@@ -171,13 +212,11 @@ watch(searchName, (newValue) => {
 .header {
     background-color: #409EFF;
     color: #fff;
-    padding: 0%;
-    margin: 50px;
     text-align: center;
 }
 
 .content {
-    flex: 1;
+    flex: 15;
     padding: 20px;
     background: #f0f2f5;
 }

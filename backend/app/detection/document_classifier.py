@@ -23,14 +23,14 @@ class DocumentClassifier:
         file_extension = file_name.split('.')[-1].lower()
         processor = DocumentProcessorFactory.get_processor(file_extension)
         file_content = processor.extract_text(content)
-
+        max_token = 500
         # Upload the file content to OpenAI
         try:
             logger.info('Uploading document to OpenAI API.')
             prompt = (
                 'Categorize the following document into one of these categories: '
-                'invoice, contract, report, or other.\n\nDocument:\n'
-                f'{file_content}\n\nCategory:'
+                "invoice, contract, report, etc..(in English), don't overwrite, reply by the word only.\n\nDocument:\n"
+                f'{file_content[:max_token]}\n\nCategory:'
             )
             logger.info('Detecting document category using OpenAI API.')
             completion = self._client.chat.completions.create(
@@ -43,7 +43,7 @@ class DocumentClassifier:
                     },
                 ],
                 max_tokens=10,
-                temperature=0,
+                temperature=0.5,
             )
 
             category = completion.choices[0].message.content

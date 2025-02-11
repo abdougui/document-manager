@@ -47,10 +47,6 @@ const props = defineProps({
     maxSizeInMB: {
         type: Number,
         required: true
-    },
-    authToken: {
-        type: String,
-        required: true
     }
 });
 const emit = defineEmits(['update:modelValue', 'file-uploaded']);
@@ -62,9 +58,6 @@ const internalVisible = computed({
 
 const fileList = ref([]);
 
-const uploadHeaders = computed(() => {
-    return { Authorization: `Bearer ${props.authToken}` };
-});
 
 async function handleConfirm() {
     if (fileList.value.length === 0) {

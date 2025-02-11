@@ -11,12 +11,13 @@ class DocumentService:
         self.storage = S3FileStorage()
         self.classifier = DocumentClassifier()
 
-    def upload_file(self, file, file_name):
+    def upload_document(self, file, file_name):
         """Uploads a document to S3."""
-        self.storage.upload_file(file=file, file_name=file_name)
+        document = self.storage.upload_file(file=file, file_name=file_name)
         logger.info(f'File {file_name} uploaded successfully.')
+        return document
 
-    def list_files(self):
+    def list_documents(self):
         """Retrieves a list of documents from S3."""
         return self.storage.retrieve_s3_objects()
 
@@ -40,3 +41,9 @@ class DocumentService:
         logger.info(f'Document {document_id} categorized as {category}')
 
         return {'document_id': document_id, 'detected_category': category}
+
+    def delete_document(self, document_id):
+        """Delete a document from S3."""
+        deleted = self.storage.remove_file_object_by_document_id(document_id=document_id)
+        logger.info(f'File {document_id} uploaded successfully.')
+        return {'message': 'Document deleted' if deleted else 'Error while deleting document'}
