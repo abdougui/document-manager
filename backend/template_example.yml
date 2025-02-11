@@ -1,0 +1,35 @@
+# template.yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: A Document Manager application deployed on AWS Lambda using SAM CLI
+
+Globals:
+  Function:
+    Timeout: 60
+  Api:
+    BinaryMediaTypes: ["*~1*"]
+Resources:
+  DocumentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: wsgi.lambda_handler
+      Runtime: python3.13
+      CodeUri: .
+      MemorySize: 512
+      Environment:
+        Variables:
+          Document_APP: #Your App Name
+          Document_ENV: #Your Environment
+          MY_AWS_ACCESS_KEY_ID: #AWS ACCESS KEY
+          MY_AWS_SECRET_ACCESS_KEY: #AWS SCRET KEY
+          MY_AWS_STORAGE_BUCKET_NAME: #AWS BUCKET NAME
+          MY_AWS_DEFAULT_REGION: #AWS REGION
+          OPENAI_API_KEY: #OPENAI API KEY
+      Policies: 
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY

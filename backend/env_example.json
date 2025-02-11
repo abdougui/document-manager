@@ -1,0 +1,11 @@
+{
+    "FlaskFunction": {
+        "FLASK_APP": "wsgi",
+        "FLASK_ENV": "development",
+        "AWS_ACCESS_KEY_ID": "YOUR AWS ACCESS KEY_ID",
+        "AWS_SECRET_ACCESS_KEY": "YOUR AWS SECRET ACCESS_KEY",
+        "AWS_STORAGE_BUCKET_NAME": "YOUR AWS STORAGE BUCKET_NAME",
+        "AWS_DEFAULT_REGION": "eu-north-1",
+        "OPENAI_API_KEY": "OPENAI API KEY"
+    }
+}

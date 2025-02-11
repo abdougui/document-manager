@@ -1,0 +1,6 @@
+*env.json
+*.env
+*.pyc
+*template.yml
+/.vscode/*
+backend/samconfig.toml

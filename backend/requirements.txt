@@ -1,0 +1,13 @@
+flask
+boto3
+serverless-wsgi
+requests
+legacy-cgi
+pytest
+openai
+openpyxl
+pytesseract
+Pillow
+docx
+python-docx
+PyPDF2
