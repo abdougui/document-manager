@@ -34,7 +34,6 @@ class DocumentService:
 
         # Detect document category
         category = self.classifier.detect_category(file_name=document_id, content=document_content)
-
         # Update document metadata with detected category
         self.storage.update_document_category(document_key=document_id, category=category)
 

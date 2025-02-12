@@ -8,7 +8,7 @@
         <!-- Main Content -->
         <el-main class="content">
             <UploadModal v-model="showUploadModal" uploadAction="/upload" acceptedFileTypes="image/*,application/pdf"
-                :maxSizeInMB="10" @file-uploaded="handleUploadSuccess" @upload-error="handleUploadError" />
+                :maxSizeInMB="2" @file-uploaded="handleUploadSuccess" @upload-error="handleUploadError" />
             <div class="toolbar">
                 <!-- Filter Section (Left) -->
                 <div class="filter-section">
@@ -126,6 +126,7 @@ function updateCategoryOptions() {
 // functions
 const analyzeDocument = async (index: number, row: Document) => {
     let documentId = row.documentId;
+    filteredDocuments.value[index].category = "fetching ..."
     try {
         let category = await documentService.analyzeDocument(documentId);
         filteredDocuments.value[index].category = category.detected_category;
@@ -154,14 +155,15 @@ const handleDelete = (index: number, row: Document) => {
             ElMessage.error('Failed to delete document.');
             console.error('Error deleting document:', error);
         }
-    }).catch(() => {
-        ElMessage.info('Delete canceled');
-    });
+    })
 
 };
 function handleUploadSuccess(response) {
-    // Handle the successful upload (e.g. update the UI or state)
-    ElMessage.success('Document uploaded successfully!')
+    if (response.message) {
+        ElMessage.success(response.message);
+    } else {
+        ElMessage.error(response.error);
+    }
 }
 
 function handleUploadError(error) {

@@ -12,3 +12,4 @@ docx
 python-docx
 PyPDF2
 flask_cors
+tiktoken
