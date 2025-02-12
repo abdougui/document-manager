@@ -42,7 +42,7 @@
                         <template v-else>
                             <el-button v-if="!loading" type="warning" @click="analyzeDocument(scope.$index, scope.row)"
                                 data-testid="analyze-button">
-                                Analyze
+                                Analyze Document
                             </el-button>
                             <el-icon v-else>
                                 <i class="el-icon-loading"></i> Fetching...
