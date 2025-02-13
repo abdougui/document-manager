@@ -18,14 +18,15 @@ def allowed_file(file_name: str) -> bool:
 def extract_metadata(file_multipart, file_name: str, document_id: str, category: str = 'none') -> dict:
     logger.info('Extracting metadata')
     upload_time = datetime.datetime.utcnow().isoformat()
-    unormilized_metadata = {
-        'original_name': file_name,
-        'filesize': str(retreive_file_size(file_multipart=file_multipart, file_name=file_name)),
-        'upload_time': upload_time,
-        'key': document_id,
-        'category': category,
-    }
-    return normalize_metadata(unormilized_metadata)
+    return normalize_metadata(
+        {
+            'original_name': file_name,
+            'filesize': str(retreive_file_size(file_multipart=file_multipart, file_name=file_name)),
+            'upload_time': upload_time,
+            'key': document_id,
+            'category': category,
+        }
+    )
 
 
 def retreive_file_size(file_multipart, file_name) -> int:
